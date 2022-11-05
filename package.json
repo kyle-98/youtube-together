@@ -1,0 +1,8 @@
+{
+    "name": "youtube-together",
+    "version": "0.1",
+    "description": "watching youtube together",
+    "dependencies": {
+        "socket.io": "^4.5.3"
+    }
+}

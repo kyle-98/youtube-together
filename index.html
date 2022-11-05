@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+    <head>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.3/socket.io.js" integrity="sha512-iWPnCISAd/J+ZacwV2mbNLCaPGRrRo5OS81lKTVPtRg1wGTC20Cfmp5Us5RcbLv42QLdbAWl0MI57yox5VecQg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="'IE=edge">
+        <meta name="viewport" content="width=device-width">
+    </head>
+
+    <body>
+        <h1>Basic Video Watch Party</h1>
+
+        <form id="url-loc">
+            <input type="text" name="linkinput"/>
+            <input type="text" name="username"/><label for="username">username</label>
+            <button type="submit">Submit</button>
+        </form>
+
+        <div id="video-player"></div>
+
+        <script>
+            //example video -> https://www.youtube.com/watch?v=h-PfBxoMq_4
+            var socket = io();
+            var video_id;
+
+            var data = [];
+            var form = document.getElementById('url-loc');
+            form.addEventListener('submit', (e) =>{
+                e.preventDefault();
+                data = [document.getElementsByName('linkinput')[0].value, document.getElementsByName('username')[0].value];
+                socket.emit('video_url', data);
+                data = [];
+            });
+
+
+
+            socket.on('video_url', (new_data) => {
+                var incoming_data = new_data;
+                if (incoming_data[0].startsWith("https://www.youtube.com/watch?v=")){
+                    video_id = incoming_data[0].split("v=")[1];
+                    player.cueVideoById({
+                        videoId: video_id,
+                        startSeconds: 0
+                    });
+                }
+                console.log(incoming_data);
+            });
+
+            var tag = document.createElement('script');
+            tag.src = "https://www.youtube.com/iframe_api";
+            var firstScriptTag = document.getElementsByTagName('script')[0];
+            firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+            var player;
+
+            function onYouTubeIframeAPIReady() {
+                player = new YT.Player('video-player', {
+                    height: '360',
+                    width: '640',
+                    videoId: video_id,
+                    playerVars:{
+                        'autoplay': 0,
+                        'rel': 0,
+                        'controls': 1,
+                        'modestbranding': 1
+                    },
+                    events: {
+                        'onReady': onPlayerReady,
+                        'onStateChange': onPlayerStateChange
+                    }
+                });
+            }
+
+            function onPlayerReady(event){
+                //event.target.playVideo();
+                
+            }
+
+            function onPlayerStateChange(event){
+                
+                var lastTime = -1;
+                var interval = 1000;
+
+                var checkPlayerTime = function () {
+                    if (lastTime != -1) {
+                        if(player.getPlayerState() == YT.PlayerState.PLAYING ) {
+                            var t = player.getCurrentTime();
+                            if (Math.abs(t - lastTime - 1) > 1.5) {
+                                var timestamp_data = [player.getCurrentTime(), document.getElementsByName('username')[0].value];
+                                socket.emit('time_change', timestamp_data);
+                            }
+                        }
+                    }
+                    lastTime = player.getCurrentTime();
+                    setTimeout(checkPlayerTime, interval);
+                }
+                setTimeout(checkPlayerTime, interval);
+
+
+                if(player.getPlayerState() == YT.PlayerState.PAUSED){
+                    var paused_data = document.getElementsByName('username')[0].value;
+                    socket.emit('player_pause', paused_data);
+                }
+
+                if(player.getPlayerState() == YT.PlayerState.PLAYING){
+                    var playing_data = document.getElementsByName('username')[0].value;
+                    socket.emit('player_play', playing_data);
+                }
+
+                
+            }
+
+            socket.on('time_change', (new_data) => {
+                if(new_data[1] != document.getElementsByName('username')[0].value){
+                    player.seekTo(new_data[0]);
+                }
+            });
+
+            socket.on('player_pause', (new_pause) => {
+                if(new_pause != document.getElementsByName('username')[0].value){
+                    player.pauseVideo();
+                }
+            });
+
+            
+            socket.on('player_play', (new_play) => {
+                if(new_play != document.getElementsByName('username')[0].value){
+                    player.playVideo();
+                }
+            });
+            
+
+
+
+
+        </script>
+
+
+    </body>
+
+
+
+</html>
